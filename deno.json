@@ -1,0 +1,9 @@
+{
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "test": "deno task test:unit && deno task test:integration",
+    "test:unit": "deno test source/",
+    "test:integration": "deno test --allow-net test/",
+    "coverage": "deno test --allow-net --coverage source/ test/"
+  }
+}
