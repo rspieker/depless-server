@@ -315,6 +315,109 @@ describe("server/server.ts", () => {
 		});
 	});
 
+	describe("register(plugin, as)", () => {
+		test("defaults to plugin.name when no override is given", async () => {
+			const server = new Server();
+			await server.register({
+				name: "logger",
+				register: () => ({ expose: { ok: true } }),
+			});
+			let received: any;
+			await server.register({
+				name: "consumer",
+				dependencies: ["logger"],
+				register: (_s, dep) => {
+					received = dep;
+					return {};
+				},
+			});
+			assert.equal(received.ok, true);
+		});
+
+		test("registers the plugin under the override name instead of its own", async () => {
+			const server = new Server();
+			await server.register(
+				{ name: "acme-logger", register: () => ({ expose: { from: "acme" } }) },
+				"logger",
+			);
+			let received: any;
+			await server.register({
+				name: "consumer",
+				dependencies: ["logger"],
+				register: (_s, dep) => {
+					received = dep;
+					return {};
+				},
+			});
+			assert.equal(received.from, "acme");
+		});
+
+		test("the same plugin object can be registered twice under different names", async () => {
+			let calls = 0;
+			const plugin = {
+				name: "logger",
+				register: () => ({ expose: { id: ++calls } }),
+			};
+			const server = new Server();
+			await server.register(plugin, "logger-a");
+			await server.register(plugin, "logger-b");
+
+			let a: any;
+			let b: any;
+			await server.register({
+				name: "consumer",
+				dependencies: ["logger-a", "logger-b"],
+				register: (_s, depA, depB) => {
+					a = depA;
+					b = depB;
+					return {};
+				},
+			});
+			assert.equal(a.id, 1);
+			assert.equal(b.id, 2);
+		});
+
+		test("two different plugins registered under the same override name collide", async () => {
+			const server = new Server();
+			await server.register(
+				{ name: "acme-logger", register: () => ({}) },
+				"logger",
+			);
+			await assert.rejects(
+				() =>
+					server.register(
+						{ name: "pino-logger", register: () => ({}) },
+						"logger",
+					),
+				/"logger" is already registered/,
+			);
+		});
+
+		test("a plugin's own dependencies are unaffected by the caller's override name", async () => {
+			const server = new Server();
+			const order: Array<string> = [];
+			await server.register({
+				name: "config",
+				register: () => {
+					order.push("config");
+					return {};
+				},
+			});
+			await server.register(
+				{
+					name: "acme-logger",
+					dependencies: ["config"],
+					register: () => {
+						order.push("acme-logger");
+						return {};
+					},
+				},
+				"logger",
+			);
+			assert.deepEqual(order, ["config", "acme-logger"]);
+		});
+	});
+
 	describe("Dependency proxy", () => {
 		async function makeDependency() {
 			const server = new Server();

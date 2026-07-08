@@ -7,7 +7,7 @@ const server = new Server();
 
 await server.register(logger);
 await server.register(users);
-await server.register(language);
+await server.register(language, "lang");
 
 server.route({
 	method: "GET",

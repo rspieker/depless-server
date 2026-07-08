@@ -64,6 +64,7 @@ type PendingPlugin = {
 	name: string;
 	dependencies: Array<string>;
 	register: Plugin["register"];
+	plugin: Plugin;
 };
 
 export type InjectOptions = {
@@ -255,18 +256,19 @@ export class Server {
 		this.#router.add(options);
 	}
 
-	async register(plugin: Plugin): Promise<void> {
+	async register(plugin: Plugin, as: string = plugin.name): Promise<void> {
 		if (
-			this.#resolvedNames.has(plugin.name) ||
-			this.#pending.some((p) => p.name === plugin.name)
+			this.#resolvedNames.has(as) ||
+			this.#pending.some((p) => p.name === as)
 		) {
-			throw new Error(`Plugin "${plugin.name}" is already registered`);
+			throw new Error(`Plugin "${as}" is already registered`);
 		}
 
 		this.#pending.push({
-			name: plugin.name,
+			name: as,
 			dependencies: plugin.dependencies ?? [],
 			register: plugin.register,
+			plugin,
 		});
 
 		await this.#resolve();
@@ -303,7 +305,12 @@ export class Server {
 
 				this.#dependencyProxies.set(candidate.name, proxy);
 				this.#resolvedNames.add(candidate.name);
-				this.#resolvedOrder.push(candidate.name);
+				this.#resolvedOrder.push(
+					candidate.name +
+						(candidate.name !== candidate.plugin.name
+							? ` (${candidate.plugin.name})`
+							: ""),
+				);
 				progressed = true;
 			}
 		}
