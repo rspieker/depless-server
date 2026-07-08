@@ -128,9 +128,32 @@ jobs:
           kill "$pid" 2>/dev/null || true
           test -n "$ok" || { echo "server never responded"; exit 1; }
 
-          extract_root="dist/.$(basename "$bin")"
-          extract_dir=$(find "$extract_root" -mindepth 1 -maxdepth 1 -type d | head -1)
-          test -n "$extract_dir" || { echo "no extraction directory found"; exit 1; }
+          # deno's --self-extracting writes next to the binary "if writable,
+          # otherwise the platform data dir" (%LOCALAPPDATA% on Windows,
+          # ~/Library/Application Support on macOS, ~/.local/share on Linux)
+          # — so don't assume it's next to the binary. Locate it by its
+          # package.json instead of guessing the hidden-dir name, since that
+          # naming isn't guaranteed to match ours exactly either.
+          case "${{ runner.os }}" in
+            Windows) data_dir="$(cygpath -u "$LOCALAPPDATA" 2>/dev/null || echo "$LOCALAPPDATA")" ;;
+            macOS) data_dir="$HOME/Library/Application Support" ;;
+            *) data_dir="$HOME/.local/share" ;;
+          esac
+
+          extract_dir=""
+          for root in dist "$data_dir"; do
+            match=$(find "$root" -maxdepth 5 -type f -iname package.json 2>/dev/null | head -1)
+            if [ -n "$match" ]; then
+              extract_dir=$(dirname "$match")
+              break
+            fi
+          done
+          test -n "$extract_dir" || {
+            echo "no extraction directory found under dist/ or $data_dir"
+            find dist -maxdepth 3
+            exit 1
+          }
+          echo "found extraction at: $extract_dir"
 
           cd "$extract_dir"
           deno task test
