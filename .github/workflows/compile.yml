@@ -30,10 +30,10 @@ jobs:
             name: windows
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # 22.20+ is required for sea.getAssetKeys(); setup-node resolves "22"
       # to the latest available 22.x, which is well past that floor.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -76,7 +76,7 @@ jobs:
           cd "$extract_dir"
           npm test
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: depless-node-${{ matrix.name }}
           path: dist/depless-node-${{ matrix.name }}*
@@ -95,8 +95,8 @@ jobs:
             name: windows
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2.0.5
 
       - name: build
         shell: bash
@@ -158,7 +158,7 @@ jobs:
           cd "$extract_dir"
           deno task test
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: depless-deno-${{ matrix.name }}
           path: dist/depless-deno-${{ matrix.name }}*
