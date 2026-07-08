@@ -57,7 +57,7 @@ export type Plugin<T extends object = object> = {
 	register: (
 		server: Server,
 		...deps: Array<Dependency>
-	) => PluginResult<T> | Promise<PluginResult<T>>;
+	) => PluginResult<T> | void | Promise<PluginResult<T> | void>;
 };
 
 type PendingPlugin = {
