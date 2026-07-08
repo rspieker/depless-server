@@ -7,6 +7,7 @@ on:
   pull_request:
     branches: [main]
     paths-ignore: ["**/*.md"]
+  workflow_call:
 
 jobs:
   test:
@@ -21,7 +22,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm test
+      # runs the same tests npm test does, plus coverage instrumentation —
+      # safe to use everywhere, since it doesn't change what runs or how
+      # pass/fail is decided.
+      - run: npm run coverage
 
   test-deno:
     strategy:
@@ -34,11 +38,18 @@ jobs:
       - uses: denoland/setup-deno@v2
       - run: deno task test
 
-  coverage:
+  coverage-report:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: denoland/setup-deno@v2
+      # deno test --coverage generates lcov.info and a browsable html/
+      # report on its own — no external tool (e.g. genhtml) needed.
+      - run: deno test --allow-net --coverage=cov_profile source/ test/
+      - name: zip html report
+        run: (cd cov_profile/html && zip -qr ../../depless-coverage.zip .)
+      - uses: actions/upload-artifact@v4
         with:
-          node-version: 24
-      - run: npm run coverage
+          name: depless-coverage
+          path: depless-coverage.zip
+          if-no-files-found: error
