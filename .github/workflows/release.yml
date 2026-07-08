@@ -1,0 +1,52 @@
+name: release
+
+# Builds and attaches the node:sea and `deno compile` binaries to a GitHub
+# Release on tag push, alongside the source zip/tarball GitHub already
+# generates automatically for every tag. See BINARIES.md —
+# these binaries are a convenience, not the primary way to get depless;
+# `git clone` (or the auto-generated source archive) remains that.
+#
+# Reuses compile.yml's build+verify jobs so a binary only ever gets
+# published after it's proven to boot and pass the test suite from its own
+# self-extracted tree, on all three OSes. Also reuses tests.yml, so a
+# release only happens once the full test matrix and coverage report succeed
+# too — and attaches that coverage report as a release asset.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    uses: ./.github/workflows/compile.yml
+
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  release:
+    needs: [compile, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: flatten artifacts and generate checksums
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f -exec cp {} release-assets/ \;
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          body: |
+            Prebuilt `node:sea` and `deno compile` binaries for Linux, macOS, and Windows are attached below, alongside `SHA256SUMS.txt` to verify them against and a browsable test coverage report (`depless-coverage.zip`).
+
+            These are a convenience, not the recommended way to get depless — see the README for that. Verify a download with e.g. `shasum -a 256 -c SHA256SUMS.txt`.

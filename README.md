@@ -167,6 +167,16 @@ assert.equal(res.status, 200);
 assert.deepEqual(res.json(), []);
 ```
 
+## Prebuilt binaries
+
+`git clone` + `npm start` (or `deno task test`) is still the recommended way
+to run depless. As an experiment, self-contained `node:sea` and
+`deno compile` binaries for Linux, macOS, and Windows are also built,
+verified, and attached to [releases](../../releases) — single-file
+executables that unpack their own embedded source on first run. See
+[BINARIES.md](./BINARIES.md) for how that works, the honest size numbers,
+and how to verify or reproduce a build yourself.
+
 ## Project layout
 
 ```
@@ -176,5 +186,6 @@ source/
   helpers/      small stdlib-only utilities used across the codebase
   main.ts       demo wiring the pieces together
 test/           integration tests (real socket)
+sea/            node:sea entry point + build script (see BINARIES.md)
 plan/           design notes for in-progress and completed work
 ```

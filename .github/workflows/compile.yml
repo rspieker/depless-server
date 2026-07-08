@@ -1,0 +1,142 @@
+name: compile
+
+# Proves the node:sea and `deno compile --self-extracting` binaries actually
+# work — build, self-extract, and run the real test suite from the extracted
+# tree — on real GitHub-hosted runners for all three OSes. See
+# BINARIES.md for the full write-up. This workflow only
+# proves the binaries work; it never publishes anything (see release.yml for
+# that, on tag push).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md"]
+  pull_request:
+    branches: [main]
+    paths-ignore: ["**/*.md"]
+  workflow_call:
+
+jobs:
+  node-sea:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # 22.20+ is required for sea.getAssetKeys(); setup-node resolves "22"
+      # to the latest available 22.x, which is well past that floor.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: build
+        shell: bash
+        run: |
+          ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
+          node sea/build.mjs "dist/depless-node-${{ matrix.name }}${ext}"
+
+      - name: run + verify self-extraction round-trip
+        shell: bash
+        run: |
+          ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
+          bin="dist/depless-node-${{ matrix.name }}${ext}"
+
+          "./$bin" &
+          pid=$!
+          ok=""
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sf http://localhost:3000/ 2>/dev/null | grep -q depless-server; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          kill "$pid" 2>/dev/null || true
+          test -n "$ok" || { echo "server never responded"; exit 1; }
+
+          extract_root="dist/.$(basename "$bin")"
+          extract_dir=$(find "$extract_root" -mindepth 1 -maxdepth 1 -type d | head -1)
+          test -n "$extract_dir" || { echo "no extraction directory found"; exit 1; }
+
+          extracted_count=$(find "$extract_dir" -type f | wc -l | tr -d ' ')
+          source_count=$(find source test hooks.js package.json tsconfig.json deno.json README.md -type f | wc -l | tr -d ' ')
+          [ "$extracted_count" = "$source_count" ] || {
+            echo "extracted file count ($extracted_count) != source file count ($source_count)"
+            exit 1
+          }
+
+          cd "$extract_dir"
+          npm test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: depless-node-${{ matrix.name }}
+          path: dist/depless-node-${{ matrix.name }}*
+          if-no-files-found: error
+
+  deno-compile:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+
+      - name: build
+        shell: bash
+        run: |
+          ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
+          deno compile --allow-net --self-extracting \
+            --include source --include test --include hooks.js \
+            --include package.json --include tsconfig.json --include deno.json \
+            --include README.md \
+            --output "dist/depless-deno-${{ matrix.name }}${ext}" \
+            source/main.ts
+
+      - name: run + verify self-extraction round-trip
+        shell: bash
+        run: |
+          ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
+          bin="dist/depless-deno-${{ matrix.name }}${ext}"
+
+          "./$bin" &
+          pid=$!
+          ok=""
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sf http://localhost:3000/ 2>/dev/null | grep -q depless-server; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          kill "$pid" 2>/dev/null || true
+          test -n "$ok" || { echo "server never responded"; exit 1; }
+
+          extract_root="dist/.$(basename "$bin")"
+          extract_dir=$(find "$extract_root" -mindepth 1 -maxdepth 1 -type d | head -1)
+          test -n "$extract_dir" || { echo "no extraction directory found"; exit 1; }
+
+          cd "$extract_dir"
+          deno task test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: depless-deno-${{ matrix.name }}
+          path: dist/depless-deno-${{ matrix.name }}*
+          if-no-files-found: error
