@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { hmac, isHashable, sha256, sha512 } from "./crypto.ts";
+import { hmac, isHashable, safeEqual, sha256, sha512 } from "./crypto.ts";
 
 describe("helpers/crypto.ts", () => {
 	describe("isHashable", () => {
@@ -80,5 +80,21 @@ describe("helpers/crypto.ts", () => {
 		test("throws for non-hashable input", () => {
 			assert.throws(() => (sign as (...args: Array<unknown>) => string)(42));
 		});
-	});
+  });
+
+  describe('safeEqual', () => {
+    test('it should return true on equal values', () => {
+      // arrange
+      // act
+      // assert
+      assert.equal(safeEqual('foo', 'foo'), true, '"foo" equals "foo"');
+    });
+
+    test('it should return false on unequal values', () => {
+      // arrange
+      // act
+      // assert
+      assert.equal(safeEqual('foo', 'bar'), false, '"foo" does not equal "bar"');
+    });
+  });
 });

@@ -1,9 +1,42 @@
-import { type BinaryToTextEncoding, createHash, createHmac, type Hash, type Hmac } from "node:crypto";
-import { any, isNodeJSArrayBufferView, isString } from "./guards.ts";
+import {
+	type BinaryToTextEncoding,
+	createHash,
+	createHmac,
+	type Hash,
+	type Hmac,
+	timingSafeEqual,
+} from "node:crypto";
+import {
+	all,
+	any,
+	arrayOfSize,
+	arrayOfType,
+	isNodeJSArrayBufferView,
+	isString,
+} from "./guards.ts";
 
 export type Hashable = string | NodeJS.ArrayBufferView;
 
 export const isHashable = any<Hashable>(isString, isNodeJSArrayBufferView);
+export const isHashableArray = all<[Hashable, ...Array<Hashable>]>(
+	arrayOfSize(1, Number.MAX_SAFE_INTEGER),
+	arrayOfType(isHashable),
+);
+
+/**
+ * Create a hash object for a specific algorithm and apply updates to it using
+ * any passed in value
+ *
+ * @param algorithm
+ * @param encoding
+ * @returns (...input: [Hashable, ...Array<Hashable>]) => string
+ */
+function hash(algorithm: string, ...values: Array<Hashable>): Hash {
+	return values.reduce(
+		(carry, value) => carry.update(value),
+		createHash(algorithm),
+	);
+}
 
 /**
  * Create a hashing function for a specific algorithm and digest method
@@ -18,9 +51,7 @@ function hasher(algorithm: string, encoding: BinaryToTextEncoding) {
 			throw new Error(`input cannot be hashed`);
 		}
 
-		return inputs
-			.reduce((hash: Hash, input) => hash.update(input), createHash(algorithm))
-			.digest(encoding);
+		return hash(algorithm, ...inputs).digest(encoding);
 	};
 }
 
@@ -37,4 +68,18 @@ export function hmac(key: Hashable, algorithm = "sha256") {
 			.reduce((h: Hmac, input) => h.update(input), createHmac(algorithm, key))
 			.digest("hex");
 	};
+}
+
+/**
+ * Create a hashing function for a specific algorithm and digest method
+ *
+ * @param algorithm
+ * @param encoding
+ * @returns (...input: [Hashable, ...Array<Hashable>]) => string
+ */
+export function safeEqual(a: Hashable, b: Hashable): boolean {
+	return timingSafeEqual(
+		hash("sha512", a).digest(),
+		hash("sha512", b).digest(),
+	);
 }
