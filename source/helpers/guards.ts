@@ -68,7 +68,7 @@ export function any<T>(...guards: [Guard<T>, ...Array<Guard<T>>]): Guard<T> {
 	return (input: unknown): input is T => guards.some((guard) => guard(input));
 }
 
-export function all<T>(...guards: [Guard<T>, ...Array<Guard<T>>]): Guard<T> {
+export function all<T>(...guards: [Guard<unknown>, ...Array<Guard<unknown>>]): Guard<T> {
 	return (input: unknown): input is T => guards.every((guard) => guard(input));
 }
 
@@ -78,4 +78,14 @@ export function not<T>(
 	const some = any(...guards);
 
 	return (input: unknown): input is T => !some(input);
+}
+
+export function arrayOfSize<T extends Array<unknown>>(min: number, max: number = min): Guard<T> {
+  return (input: unknown): input is T => isArray(input) && input.length >= min && input.length <= max;
+}
+
+export function arrayOfType<T>(...guards: [Guard<unknown>, ...Array<Guard<unknown>>]): Guard<Array<T>> {
+  const predicate = all(...guards);
+
+  return (input: unknown): input is Array<T> => isArray(input) && input.every(predicate);
 }

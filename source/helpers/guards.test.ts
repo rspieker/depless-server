@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
+import * as exported from "./guards.ts";
 import {
 	all,
 	any,
+	arrayOfSize,
+	arrayOfType,
 	isArray,
 	isBoolean,
 	isBooleanPrimitiveOrObject,
@@ -21,46 +24,117 @@ import {
 } from "./guards.ts";
 
 describe("helpers/guards.ts", () => {
-	describe("isString", () => {
-		test("returns true for string literals", () => {
-			assert.equal(isString("hello"), true);
-			assert.equal(isString(""), true);
-		});
+	test("exports", () => {
+		// arrange
+		const expected = [
+			"all",
+			"any",
+			"arrayOfSize",
+			"arrayOfType",
+			"isArray",
+			"isBoolean",
+			"isBooleanPrimitiveOrObject",
+			"isInteger",
+			"isNULL",
+			"isNodeJSArrayBufferView",
+			"isNumber",
+			"isNumberPrimitiveOrObject",
+			"isObject",
+			"isPlainObject",
+			"isString",
+			"isStringPrimitiveOrObject",
+			"isStruct",
+			"not",
+		];
 
-		test("returns false for non-strings", () => {
-			assert.equal(isString(0), false);
-			assert.equal(isString(null), false);
-			assert.equal(isString(undefined), false);
-			assert.equal(isString([]), false);
-			assert.equal(isString({}), false);
-			assert.equal(isString(true), false);
-		});
+		// act
+		const actual = Object.keys(exported).sort();
+
+		// assert
+		assert.deepEqual(actual, expected, `exports ${expected}`);
 	});
 
-	describe("isNumber", () => {
-		test("returns true for number primitives", () => {
-			assert.equal(isNumber(0), true);
-			assert.equal(isNumber(42), true);
-			assert.equal(isNumber(NaN), true);
+	describe("primitives", () => {
+		describe("isString", () => {
+			test("returns true for string literals", () => {
+				assert.equal(isString("hello"), true);
+				assert.equal(isString(""), true);
+			});
+
+			test("returns false for non-strings", () => {
+				assert.equal(isString(0), false);
+				assert.equal(isString(null), false);
+				assert.equal(isString(undefined), false);
+				assert.equal(isString([]), false);
+				assert.equal(isString({}), false);
+				assert.equal(isString(true), false);
+			});
 		});
 
-		test("returns false for non-numbers", () => {
-			assert.equal(isNumber("42"), false);
-			assert.equal(isNumber(null), false);
-			assert.equal(isNumber(new Number(42)), false);
-		});
-	});
+		describe("isStringPrimitiveOrObject", () => {
+			test("returns true for string primitives", () => {
+				assert.equal(isStringPrimitiveOrObject("hello"), true);
+			});
 
-	describe("isBoolean", () => {
-		test("returns true for boolean primitives", () => {
-			assert.equal(isBoolean(true), true);
-			assert.equal(isBoolean(false), true);
+			test("returns true for String wrapper objects", () => {
+				assert.equal(isStringPrimitiveOrObject(new String("hello")), true);
+			});
+
+			test("returns false for non-strings", () => {
+				assert.equal(isStringPrimitiveOrObject(42), false);
+				assert.equal(isStringPrimitiveOrObject(null), false);
+			});
 		});
 
-		test("returns false for non-booleans", () => {
-			assert.equal(isBoolean(0), false);
-			assert.equal(isBoolean(null), false);
-			assert.equal(isBoolean(new Boolean(true)), false);
+		describe("isNumber", () => {
+			test("returns true for number primitives", () => {
+				assert.equal(isNumber(0), true);
+				assert.equal(isNumber(42), true);
+				assert.equal(isNumber(NaN), true);
+			});
+
+			test("returns false for non-numbers", () => {
+				assert.equal(isNumber("42"), false);
+				assert.equal(isNumber(null), false);
+				assert.equal(isNumber(new Number(42)), false);
+			});
+		});
+
+		describe("isNumberPrimitiveOrObject", () => {
+			test("returns true for number primitives and Number wrappers", () => {
+				assert.equal(isNumberPrimitiveOrObject(42), true);
+				assert.equal(isNumberPrimitiveOrObject(new Number(42)), true);
+			});
+
+			test("returns false for non-numbers", () => {
+				assert.equal(isNumberPrimitiveOrObject("42"), false);
+				assert.equal(isNumberPrimitiveOrObject(null), false);
+			});
+		});
+
+		describe("isBoolean", () => {
+			test("returns true for boolean primitives", () => {
+				assert.equal(isBoolean(true), true);
+				assert.equal(isBoolean(false), true);
+			});
+
+			test("returns false for non-booleans", () => {
+				assert.equal(isBoolean(0), false);
+				assert.equal(isBoolean(null), false);
+				assert.equal(isBoolean(new Boolean(true)), false);
+			});
+		});
+
+		describe("isBooleanPrimitiveOrObject", () => {
+			test("returns true for boolean primitives and Boolean wrappers", () => {
+				assert.equal(isBooleanPrimitiveOrObject(true), true);
+				assert.equal(isBooleanPrimitiveOrObject(new Boolean(false)), true);
+			});
+
+			test("returns false for non-booleans", () => {
+				assert.equal(isBooleanPrimitiveOrObject(0), false);
+				assert.equal(isBooleanPrimitiveOrObject(null), false);
+			});
 		});
 	});
 
@@ -73,33 +147,6 @@ describe("helpers/guards.ts", () => {
 			assert.equal(isNULL(undefined), false);
 			assert.equal(isNULL(0), false);
 			assert.equal(isNULL(""), false);
-		});
-	});
-
-	describe("isArray", () => {
-		test("returns true for arrays", () => {
-			assert.equal(isArray([]), true);
-			assert.equal(isArray([1, 2, 3]), true);
-		});
-
-		test("returns false for non-arrays", () => {
-			assert.equal(isArray({}), false);
-			assert.equal(isArray(null), false);
-			assert.equal(isArray("hello"), false);
-		});
-	});
-
-	describe("isObject", () => {
-		test("returns true for plain objects and class instances", () => {
-			assert.equal(isObject({}), true);
-			assert.equal(isObject(new Date()), true);
-		});
-
-		test("returns false for null, arrays, and primitives", () => {
-			assert.equal(isObject(null), false);
-			assert.equal(isObject([]), false);
-			assert.equal(isObject("hello"), false);
-			assert.equal(isObject(42), false);
 		});
 	});
 
@@ -118,137 +165,270 @@ describe("helpers/guards.ts", () => {
 		});
 	});
 
-	describe("isPlainObject", () => {
-		test("returns true for plain objects", () => {
-			assert.equal(isPlainObject({}), true);
-			assert.equal(isPlainObject({ a: 1 }), true);
+	describe("arrays", () => {
+		describe("isArray", () => {
+			test("returns true for arrays", () => {
+				assert.equal(isArray([]), true);
+				assert.equal(isArray([1, 2, 3]), true);
+			});
+
+			test("returns false for non-arrays", () => {
+				assert.equal(isArray({}), false);
+				assert.equal(isArray(null), false);
+				assert.equal(isArray("hello"), false);
+			});
 		});
 
-		test("returns false for class instances, arrays, null, and primitives", () => {
-			assert.equal(isPlainObject(new Date()), false);
-			assert.equal(isPlainObject([]), false);
-			assert.equal(isPlainObject(null), false);
-			assert.equal(isPlainObject("hello"), false);
-		});
-	});
-
-	describe("isStruct", () => {
-		type User = {
-			id: number;
-			name: string;
-		};
-		const isUser = isStruct<User>({
-			id: isInteger,
-			name: (input: unknown): input is string =>
-				isString(input) && input.length >= 3,
-		});
-		type Message = {
-			id: number;
-			from: User;
-			to: [User, ...Array<User>];
-			message: string;
-		};
-		const isMessage = isStruct<Message>({
-			id: isInteger,
-			from: isUser,
-			to: (input: unknown): input is [User, ...Array<User>] =>
-				isArray(input) &&
-				input.length >= 1 &&
-				input.every((value) => isUser(value)),
-			message: isString,
-		});
-
-		test("returns true for valid structures", () => {
+		test("arrayOfSize", () => {
 			// arrange
-			const alice: User = { id: 1, name: "Alice" };
-			const bob: User = { id: 2, name: "Bob" };
-			const initial: Message = {
-				id: 1,
-				from: alice,
-				to: [bob],
-				message: "hello",
-			};
-			const reply: Message = { id: 2, from: bob, to: [alice], message: "hi!" };
+			const isOne = arrayOfSize(1);
+			const isTwoToFour = arrayOfSize(2, 4);
+			const oneNumber = [1];
+			const oneString = ["one"];
+			const oneObject = [{ value: 1 }];
+			const twoNumber = oneNumber.concat(2);
+			const twoString = oneString.concat("two");
+			const twoObject = oneObject.concat({ value: 2 });
+			const threeNumber = twoNumber.concat(3);
+			const threeString = twoString.concat("three");
+			const threeObject = twoObject.concat({ value: 3 });
+			const fourNumber = threeNumber.concat(4);
+			const fourString = threeString.concat("four");
+			const fourObject = threeObject.concat({ value: 4 });
+			const fiveNumber = fourNumber.concat(5);
+			const fiveString = fourString.concat("five");
+			const fiveObject = fourObject.concat({ value: 5 });
+			const ones = [oneNumber, oneString, oneObject];
+			const twoToFours = [
+				twoNumber,
+				twoString,
+				twoObject,
+				threeNumber,
+				threeString,
+				threeObject,
+				fourNumber,
+				fourString,
+				fourObject,
+			];
+			const fives = [fiveNumber, fiveString, fiveObject];
 
 			// act
 			// assert
-			assert.ok(isUser(alice), `${alice} is User`);
-			assert.ok(isUser(bob), `${bob} is User`);
-			assert.ok(isMessage(initial), `${initial} is Message`);
-			assert.ok(isMessage(reply), `${reply} is Message`);
+			ones.forEach((list) => {
+				assert.equal(isOne(list), true, `${list} is isArrayOfSize(1)`);
+			});
+			twoToFours.concat(fives).forEach((list) => {
+				assert.equal(isOne(list), false, `${list} is not isArrayOfSize(1)`);
+			});
+
+			twoToFours.forEach((list) => {
+				assert.equal(isTwoToFour(list), true, `${list} is isArrayOfSize(2,4)`);
+			});
+			ones.concat(fives).forEach((list) => {
+				assert.equal(
+					isTwoToFour(list),
+					false,
+					`${list} is not isArrayOfSize(2,4)`,
+				);
+			});
 		});
 
-		test("returns false for invalid structures/values", () => {
+		test("arrayOfType", () => {
+			// arrange
+			const empty: Array<unknown> = [];
+			const numbers = [0];
+			const strings = ["zero", "one"];
+			const entities = [{ id: 1 }, { id: 2 }];
+			const isNumberArray = arrayOfType<number>(isNumber);
+			const isStringArray = arrayOfType<string>(isString);
+			const isEntityArray = arrayOfType<{ id: number }>(
+				isStruct({ id: isInteger }),
+			);
+
+			// act
 			// assert
-			assert.ok(!isUser({}), `{} is not User`);
-			assert.ok(!isUser({ id: 3 }), `{id:3} is not User`);
-			assert.ok(!isUser({ name: "Foo" }), `{name: 'Foo'} is not User`);
-			assert.ok(
-				!isUser({ id: 4, name: "Fo" }),
-				`{id:3, name: 'Fo'} is not User`,
+			assert.equal(
+				isNumberArray(empty),
+				true,
+				"[] is isArrayOfType<number>(isNumber)",
 			);
-			assert.ok(!isMessage({}), `{} is not Message`);
-			assert.ok(!isMessage({ id: 3 }), `{id:3} is not Message`);
-			assert.ok(
-				!isMessage({ id: 4, message: "hi" }),
-				`{id:3, message: 'hi'} is not Message`,
+			assert.equal(
+				isNumberArray(numbers),
+				true,
+				"[0] is isArrayOfType<number>(isNumber)",
 			);
-			assert.ok(
-				!isMessage({ id: 5, message: "hi", from: { id: 1, name: "Alice" } }),
-				`{id:3, message: 'hi', from: { id: 1, name: "Alice" }} is not Message`,
+			assert.equal(
+				isNumberArray(strings),
+				false,
+				'["zero","one"] is not isArrayOfType<number>(isNumber)',
 			);
-			assert.ok(
-				!isMessage({ id: 6, message: "hi", to: [{ id: 2, name: "Bob" }] }),
-				`{id:3, message: 'hi', to: [{ id: 2, name: "Bob" }]} is not Message`,
+			assert.equal(
+				isNumberArray(entities),
+				false,
+				"[{id:1},{id:2}] is not isArrayOfType<number>(isNumber)",
 			);
-			assert.ok(
-				!isMessage({
-					id: 7,
-					message: "hi",
-					from: { id: 1, name: "Alice" },
-					to: [{ id: 2, name: "Bo" }],
-				}),
-				`{id:3, message: 'hi', from: {id:1,name:'Alice'}, to: [{ id: 2, name: "Bo" }]} is not Message`,
+
+			assert.equal(
+				isStringArray(empty),
+				true,
+				"[] is isArrayOfType<string>(isString)",
+			);
+			assert.equal(
+				isStringArray(numbers),
+				false,
+				"[0] is not isArrayOfType<string>(isString)",
+			);
+			assert.equal(
+				isStringArray(strings),
+				true,
+				'["zero","one"] is isArrayOfType<string>(isString)',
+			);
+			assert.equal(
+				isStringArray(entities),
+				false,
+				"[{id:1},{id:2}] is not isArrayOfType<string>(isString)",
+			);
+
+			assert.equal(
+				isEntityArray(empty),
+				true,
+				"[] is isArrayOfType<{id:number}>(isStruct({ id: isInteger }))",
+			);
+			assert.equal(
+				isEntityArray(numbers),
+				false,
+				"[0] is not isArrayOfType<{id:number}>(isStruct({ id: isInteger }))",
+			);
+			assert.equal(
+				isEntityArray(strings),
+				false,
+				'["zero","one"] is not isArrayOfType<{id:number}>(isStruct({ id: isInteger }))',
+			);
+			assert.equal(
+				isEntityArray(entities),
+				true,
+				"[{id:1},{id:2}] is isArrayOfType<{id:number}>(isStruct({ id: isInteger }))",
 			);
 		});
 	});
 
-	describe("isStringPrimitiveOrObject", () => {
-		test("returns true for string primitives", () => {
-			assert.equal(isStringPrimitiveOrObject("hello"), true);
+	describe("objects", () => {
+		describe("isObject", () => {
+			test("returns true for plain objects and class instances", () => {
+				assert.equal(isObject({}), true);
+				assert.equal(isObject(new Date()), true);
+			});
+
+			test("returns false for null, arrays, and primitives", () => {
+				assert.equal(isObject(null), false);
+				assert.equal(isObject([]), false);
+				assert.equal(isObject("hello"), false);
+				assert.equal(isObject(42), false);
+			});
 		});
 
-		test("returns true for String wrapper objects", () => {
-			assert.equal(isStringPrimitiveOrObject(new String("hello")), true);
+		describe("isPlainObject", () => {
+			test("returns true for plain objects", () => {
+				assert.equal(isPlainObject({}), true);
+				assert.equal(isPlainObject({ a: 1 }), true);
+			});
+
+			test("returns false for class instances, arrays, null, and primitives", () => {
+				assert.equal(isPlainObject(new Date()), false);
+				assert.equal(isPlainObject([]), false);
+				assert.equal(isPlainObject(null), false);
+				assert.equal(isPlainObject("hello"), false);
+			});
 		});
 
-		test("returns false for non-strings", () => {
-			assert.equal(isStringPrimitiveOrObject(42), false);
-			assert.equal(isStringPrimitiveOrObject(null), false);
-		});
-	});
+		describe("isStruct", () => {
+			type User = {
+				id: number;
+				name: string;
+			};
+			const isUser = isStruct<User>({
+				id: isInteger,
+				name: (input: unknown): input is string =>
+					isString(input) && input.length >= 3,
+			});
+			type Message = {
+				id: number;
+				from: User;
+				to: [User, ...Array<User>];
+				message: string;
+			};
+			const isMessage = isStruct<Message>({
+				id: isInteger,
+				from: isUser,
+				to: (input: unknown): input is [User, ...Array<User>] =>
+					isArray(input) &&
+					input.length >= 1 &&
+					input.every((value) => isUser(value)),
+				message: isString,
+			});
 
-	describe("isNumberPrimitiveOrObject", () => {
-		test("returns true for number primitives and Number wrappers", () => {
-			assert.equal(isNumberPrimitiveOrObject(42), true);
-			assert.equal(isNumberPrimitiveOrObject(new Number(42)), true);
-		});
+			test("returns true for valid structures", () => {
+				// arrange
+				const alice: User = { id: 1, name: "Alice" };
+				const bob: User = { id: 2, name: "Bob" };
+				const initial: Message = {
+					id: 1,
+					from: alice,
+					to: [bob],
+					message: "hello",
+				};
+				const reply: Message = {
+					id: 2,
+					from: bob,
+					to: [alice],
+					message: "hi!",
+				};
 
-		test("returns false for non-numbers", () => {
-			assert.equal(isNumberPrimitiveOrObject("42"), false);
-			assert.equal(isNumberPrimitiveOrObject(null), false);
-		});
-	});
+				// act
+				// assert
+				assert.ok(isUser(alice), `${alice} is User`);
+				assert.ok(isUser(bob), `${bob} is User`);
+				assert.ok(isMessage(initial), `${initial} is Message`);
+				assert.ok(isMessage(reply), `${reply} is Message`);
+			});
 
-	describe("isBooleanPrimitiveOrObject", () => {
-		test("returns true for boolean primitives and Boolean wrappers", () => {
-			assert.equal(isBooleanPrimitiveOrObject(true), true);
-			assert.equal(isBooleanPrimitiveOrObject(new Boolean(false)), true);
-		});
-
-		test("returns false for non-booleans", () => {
-			assert.equal(isBooleanPrimitiveOrObject(0), false);
-			assert.equal(isBooleanPrimitiveOrObject(null), false);
+			test("returns false for invalid structures/values", () => {
+				// assert
+				assert.ok(!isUser({}), `{} is not User`);
+				assert.ok(!isUser({ id: 3 }), `{id:3} is not User`);
+				assert.ok(!isUser({ name: "Foo" }), `{name: 'Foo'} is not User`);
+				assert.ok(
+					!isUser({ id: 4, name: "Fo" }),
+					`{id:3, name: 'Fo'} is not User`,
+				);
+				assert.ok(!isMessage({}), `{} is not Message`);
+				assert.ok(!isMessage({ id: 3 }), `{id:3} is not Message`);
+				assert.ok(
+					!isMessage({ id: 4, message: "hi" }),
+					`{id:3, message: 'hi'} is not Message`,
+				);
+				assert.ok(
+					!isMessage({
+						id: 5,
+						message: "hi",
+						from: { id: 1, name: "Alice" },
+					}),
+					`{id:3, message: 'hi', from: { id: 1, name: "Alice" }} is not Message`,
+				);
+				assert.ok(
+					!isMessage({ id: 6, message: "hi", to: [{ id: 2, name: "Bob" }] }),
+					`{id:3, message: 'hi', to: [{ id: 2, name: "Bob" }]} is not Message`,
+				);
+				assert.ok(
+					!isMessage({
+						id: 7,
+						message: "hi",
+						from: { id: 1, name: "Alice" },
+						to: [{ id: 2, name: "Bo" }],
+					}),
+					`{id:3, message: 'hi', from: {id:1,name:'Alice'}, to: [{ id: 2, name: "Bo" }]} is not Message`,
+				);
+			});
 		});
 	});
 
@@ -270,49 +450,51 @@ describe("helpers/guards.ts", () => {
 		});
 	});
 
-	describe("any", () => {
-		const isStringOrBuffer = any<string | NodeJS.ArrayBufferView>(
-			isString,
-			isNodeJSArrayBufferView,
-		);
+	describe("combinators", () => {
+		describe("any", () => {
+			const isStringOrBuffer = any<string | NodeJS.ArrayBufferView>(
+				isString,
+				isNodeJSArrayBufferView,
+			);
 
-		test("returns true when at least one guard matches", () => {
-			assert.equal(isStringOrBuffer("hello"), true);
-			assert.equal(isStringOrBuffer(Buffer.from("hello")), true);
+			test("returns true when at least one guard matches", () => {
+				assert.equal(isStringOrBuffer("hello"), true);
+				assert.equal(isStringOrBuffer(Buffer.from("hello")), true);
+			});
+
+			test("returns false when no guard matches", () => {
+				assert.equal(isStringOrBuffer(42), false);
+				assert.equal(isStringOrBuffer(null), false);
+			});
 		});
 
-		test("returns false when no guard matches", () => {
-			assert.equal(isStringOrBuffer(42), false);
-			assert.equal(isStringOrBuffer(null), false);
-		});
-	});
+		describe("all", () => {
+			const isNonEmptyString = all<string>(
+				isString,
+				(v): v is string => isString(v) && v.length > 0,
+			);
 
-	describe("all", () => {
-		const isNonEmptyString = all<string>(
-			isString,
-			(v): v is string => isString(v) && v.length > 0,
-		);
+			test("returns true when all guards match", () => {
+				assert.equal(isNonEmptyString("hello"), true);
+			});
 
-		test("returns true when all guards match", () => {
-			assert.equal(isNonEmptyString("hello"), true);
-		});
-
-		test("returns false when any guard fails", () => {
-			assert.equal(isNonEmptyString(""), false);
-			assert.equal(isNonEmptyString(42), false);
-		});
-	});
-
-	describe("not", () => {
-		const isNotString = not<unknown>(isString);
-
-		test("returns true when no guard matches", () => {
-			assert.equal(isNotString(42), true);
-			assert.equal(isNotString(null), true);
+			test("returns false when any guard fails", () => {
+				assert.equal(isNonEmptyString(""), false);
+				assert.equal(isNonEmptyString(42), false);
+			});
 		});
 
-		test("returns false when a guard matches", () => {
-			assert.equal(isNotString("hello"), false);
+		describe("not", () => {
+			const isNotString = not<unknown>(isString);
+
+			test("returns true when no guard matches", () => {
+				assert.equal(isNotString(42), true);
+				assert.equal(isNotString(null), true);
+			});
+
+			test("returns false when a guard matches", () => {
+				assert.equal(isNotString("hello"), false);
+			});
 		});
 	});
 });
