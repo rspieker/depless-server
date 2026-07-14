@@ -421,6 +421,10 @@ export class Server {
 		return addr && typeof addr === "object" ? addr.port : null;
 	}
 
+	get routes(): Array<{ method: string; path: string }> {
+		return this.#router.list();
+	}
+
 	async stop(): Promise<void> {
 		const errors: Array<unknown> = [];
 
