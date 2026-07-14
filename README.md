@@ -94,8 +94,44 @@ export const users: Plugin = {
   `AggregateError` rather than aborting shutdown early.
 - Registering two plugins under the same `name`, or starting the server while
   a plugin's dependencies never resolved, throws — no silent misconfiguration.
+- `server.register(plugin, { as })` registers under an override name instead
+  of the plugin's own `name` — useful when a third-party plugin's self-chosen
+  name collides with another's (several loggers all calling themselves
+  `"logger"`, say). Only the identity other plugins depend on changes; the
+  plugin's own declared `dependencies` are unaffected.
 - `server.start(port)` prints a boot display listing resolved plugins and
   registered routes, so wiring is visible without reading `main.ts`.
+
+## Config
+
+`new Server(config)` takes a system-wide config object keyed by plugin name,
+e.g. `new Server({ "token-auth": { secret } })`. Inside `register()`, a
+plugin reads its own resolved config with `server.options()`:
+
+```ts
+register: (server) => {
+	const { secret } = server.options<{ secret: string }>();
+	...
+},
+```
+
+The config passed to a given plugin is assembled from three layers, each
+overriding the last:
+
+```
+{
+	...server.config[plugin.name],
+	...server.config[as],       // only differs from the above when aliased
+	...registrationOptions.config,
+}
+```
+
+so a system-wide default (keyed by the plugin's own name), an alias-specific
+override (useful when the same plugin is registered twice under different
+names), and a one-off override passed directly to `server.register(plugin, {
+config })` all compose instead of fighting each other. `server.options()`
+throws when called outside `register()`; `server.config` is the raw,
+unmerged map passed to the constructor.
 
 ## Hooks
 

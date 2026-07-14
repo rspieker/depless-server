@@ -338,7 +338,7 @@ describe("server/server.ts", () => {
 			const server = new Server();
 			await server.register(
 				{ name: "acme-logger", register: () => ({ expose: { from: "acme" } }) },
-				"logger",
+				{ as: "logger" },
 			);
 			let received: any;
 			await server.register({
@@ -359,8 +359,8 @@ describe("server/server.ts", () => {
 				register: () => ({ expose: { id: ++calls } }),
 			};
 			const server = new Server();
-			await server.register(plugin, "logger-a");
-			await server.register(plugin, "logger-b");
+			await server.register(plugin, { as: "logger-a" });
+			await server.register(plugin, { as: "logger-b" });
 
 			let a: any;
 			let b: any;
@@ -381,13 +381,13 @@ describe("server/server.ts", () => {
 			const server = new Server();
 			await server.register(
 				{ name: "acme-logger", register: () => ({}) },
-				"logger",
+				{ as: "logger" },
 			);
 			await assert.rejects(
 				() =>
 					server.register(
 						{ name: "pino-logger", register: () => ({}) },
-						"logger",
+						{ as: "logger" },
 					),
 				/"logger" is already registered/,
 			);
@@ -412,7 +412,7 @@ describe("server/server.ts", () => {
 						return {};
 					},
 				},
-				"logger",
+				{ as: "logger" },
 			);
 			assert.deepEqual(order, ["config", "acme-logger"]);
 		});

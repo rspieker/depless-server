@@ -60,11 +60,17 @@ export type Plugin<T extends object = object> = {
 	) => PluginResult<T> | void | Promise<PluginResult<T> | void>;
 };
 
+export type RegisterOptions<Config extends object = object> = {
+	as?: string;
+	config?: Config;
+};
+
 type PendingPlugin = {
 	name: string;
 	dependencies: Array<string>;
 	register: Plugin["register"];
 	plugin: Plugin;
+	config: object;
 };
 
 export type InjectOptions = {
@@ -195,6 +201,8 @@ export class Server {
 	#dependencyProxies = new Map<string, Dependency>();
 	#proxyOwner = new WeakMap<object, string>();
 	#currentPlugin: object | null = null;
+	#currentConfig: object | null = null;
+	#config: Record<string, Record<string, unknown>>;
 
 	#hooks: Hooks = {
 		"before-handler": [],
@@ -204,7 +212,9 @@ export class Server {
 
 	readonly hook: HookRegistrar;
 
-	constructor() {
+	constructor(config: Record<string, Record<string, unknown>> = {}) {
+		this.#config = config;
+
 		const registrar = ((stage: HookStage, fn: HookFn) => {
 			this.#addHook(stage, fn);
 		}) as HookRegistrar;
@@ -212,6 +222,19 @@ export class Server {
 			this.#splice(stage, dep, fn, "before");
 		registrar.after = (stage, dep, fn) => this.#splice(stage, dep, fn, "after");
 		this.hook = registrar;
+	}
+
+	get config(): Readonly<Record<string, Record<string, unknown>>> {
+		return this.#config;
+	}
+
+	options<T extends object = object>(): T {
+		if (!this.#currentPlugin) {
+			throw new Error(
+				"server.options() can only be called inside a plugin's register()",
+			);
+		}
+		return this.#currentConfig as T;
 	}
 
 	#addHook(stage: HookStage, fn: HookFn): void {
@@ -256,7 +279,12 @@ export class Server {
 		this.#router.add(options);
 	}
 
-	async register(plugin: Plugin, as: string = plugin.name): Promise<void> {
+	async register<Config extends object = object>(
+		plugin: Plugin,
+		options: RegisterOptions<Config> = {},
+	): Promise<void> {
+		const as = options.as ?? plugin.name;
+
 		if (
 			this.#resolvedNames.has(as) ||
 			this.#pending.some((p) => p.name === as)
@@ -264,11 +292,18 @@ export class Server {
 			throw new Error(`Plugin "${as}" is already registered`);
 		}
 
+		const config = {
+			...this.#config[plugin.name],
+			...this.#config[as],
+			...options.config,
+		};
+
 		this.#pending.push({
 			name: as,
 			dependencies: plugin.dependencies ?? [],
 			register: plugin.register,
 			plugin,
+			config,
 		});
 
 		await this.#resolve();
@@ -294,6 +329,7 @@ export class Server {
 				);
 
 				this.#currentPlugin = proxy;
+				this.#currentConfig = candidate.config;
 				const result = await candidate.register(this, ...depProxies);
 				if (result?.expose !== undefined) {
 					Object.assign(target, result.expose);
@@ -302,6 +338,7 @@ export class Server {
 					this.#addHook("shutdown", result.cleanup);
 				}
 				this.#currentPlugin = null;
+				this.#currentConfig = null;
 
 				this.#dependencyProxies.set(candidate.name, proxy);
 				this.#resolvedNames.add(candidate.name);
