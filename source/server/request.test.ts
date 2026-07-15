@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
+import { Readable } from "node:stream";
 import { describe, test } from "node:test";
 
 import { body, parseUrl, type RequestLike } from "./request.ts";
@@ -12,24 +12,22 @@ function mockRequest(
 		emitError?: Error;
 	} = {},
 ): RequestLike {
-	const ee = new EventEmitter();
-	const emitter: RequestLike = Object.assign(ee, {
-		url: options.url ?? "/",
-		headers: options.headers ?? {},
-		resume() {},
-	});
+	const readable = new Readable({ read() {} }) as RequestLike;
+	readable.url = options.url ?? "/";
+	readable.headers = options.headers ?? {};
 
 	if (options.emitError) {
-		const error = options.emitError;
-		setImmediate(() => ee.emit("error", error));
+		setImmediate(() => readable.destroy(options.emitError));
 	} else if (options.body !== undefined) {
 		setImmediate(() => {
-			ee.emit("data", Buffer.from(options.body!));
-			ee.emit("end");
+			readable.push(Buffer.from(options.body!));
+			readable.push(null);
 		});
+	} else {
+		setImmediate(() => readable.push(null));
 	}
 
-	return emitter;
+	return readable;
 }
 
 describe("server/request.ts", () => {
@@ -95,6 +93,51 @@ describe("server/request.ts", () => {
 				emitError: new Error("socket hang up"),
 			});
 			await assert.rejects(() => body(req));
+		});
+
+		test("resolves under the default limit", async () => {
+			const req = mockRequest({
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ name: "Alice" }),
+			});
+			assert.deepEqual(await body(req), { name: "Alice" });
+		});
+
+		test("rejects with a 413-tagged error once the default limit is exceeded", async () => {
+			const req = mockRequest({
+				url: "/users",
+				headers: { "content-type": "application/json" },
+				body: "x".repeat(16 * 1024 + 1),
+			});
+			await assert.rejects(
+				() => body(req),
+				(err: Error & { status: number }) => {
+					assert.equal(err.status, 413);
+					assert.match(err.message, /Body exceeds 16384 byte limit for GET \/users/);
+					assert.match(err.message, /maxBodySize/);
+					return true;
+				},
+			);
+		});
+
+		test("respects an explicit maxBodySize override", async () => {
+			const req = mockRequest({
+				headers: { "content-type": "application/json" },
+				body: '{"name":"Alice"}',
+			});
+			await assert.rejects(
+				() => body(req, 5),
+				/Body exceeds 5 byte limit/,
+			);
+		});
+
+		test("a body exactly at the limit is not rejected", async () => {
+			const payload = JSON.stringify({ n: 1 });
+			const req = mockRequest({
+				headers: { "content-type": "application/json" },
+				body: payload,
+			});
+			assert.deepEqual(await body(req, Buffer.byteLength(payload)), { n: 1 });
 		});
 	});
 });

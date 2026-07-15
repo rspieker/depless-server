@@ -97,6 +97,74 @@ describe("server/server.ts", () => {
 		});
 	});
 
+	describe("request body size limit", () => {
+		test("body over the default limit → 413 with a descriptive message", async () => {
+			const server = new Server();
+			server.route({
+				method: "POST",
+				path: "/echo",
+				handler: async ({ body, reply }) => reply(await body()).code(201),
+			});
+			const res = await server.inject({
+				method: "POST",
+				path: "/echo",
+				headers: { "content-type": "application/json" },
+				body: { data: "x".repeat(16 * 1024) },
+			});
+			assert.equal(res.status, 413);
+			assert.match(res.json<{ error: string }>().error, /Body exceeds 16384 byte limit/);
+			assert.match(res.json<{ error: string }>().error, /maxBodySize/);
+		});
+
+		test("body under the default limit is unaffected", async () => {
+			const server = new Server();
+			server.route({
+				method: "POST",
+				path: "/echo",
+				handler: async ({ body, reply }) => reply(await body()).code(201),
+			});
+			const res = await server.inject({
+				method: "POST",
+				path: "/echo",
+				body: { x: 1 },
+			});
+			assert.equal(res.status, 201);
+		});
+
+		test("a route's maxBodySize overrides the default, allowing a larger body", async () => {
+			const server = new Server();
+			server.route({
+				method: "POST",
+				path: "/uploads",
+				maxBodySize: 32 * 1024,
+				handler: async ({ body, reply }) => reply(await body()).code(201),
+			});
+			const res = await server.inject({
+				method: "POST",
+				path: "/uploads",
+				body: { data: "x".repeat(20 * 1024) },
+			});
+			assert.equal(res.status, 201);
+		});
+
+		test("a route's maxBodySize can also lower the limit below the default", async () => {
+			const server = new Server();
+			server.route({
+				method: "POST",
+				path: "/tiny",
+				maxBodySize: 10,
+				handler: async ({ body, reply }) => reply(await body()).code(201),
+			});
+			const res = await server.inject({
+				method: "POST",
+				path: "/tiny",
+				body: { x: "well over ten bytes" },
+			});
+			assert.equal(res.status, 413);
+			assert.match(res.json<{ error: string }>().error, /Body exceeds 10 byte limit/);
+		});
+	});
+
 	describe("inject()", () => {
 		test("throws the same dependency error as start(), without binding a port", async () => {
 			const server = new Server();

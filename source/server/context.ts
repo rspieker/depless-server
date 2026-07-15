@@ -1,5 +1,5 @@
 import { Reply } from "./reply.ts";
-import { body, type RequestLike } from "./request.ts";
+import { body, DEFAULT_MAX_BODY_SIZE, type RequestLike } from "./request.ts";
 import {
 	empty,
 	isSent,
@@ -20,6 +20,10 @@ export type Context = {
 	readonly query: URLSearchParams;
 	readonly sent: boolean;
 	readonly staged: Pending | undefined;
+	// Set by dispatch() once a route has matched, from that route's
+	// RouteOptions.maxBodySize; body() falls back to DEFAULT_MAX_BODY_SIZE
+	// when unset.
+	maxBodySize?: number;
 	body<T = unknown>(): Promise<T>;
 	send(data: string | Buffer, status?: number): void;
 	json(data: unknown, status?: number): void;
@@ -56,7 +60,8 @@ export function createContext(
 		get staged() {
 			return pending(res);
 		},
-		body: <T>() => body<T>(req),
+		body: <T>() =>
+			body<T>(req, (shadow.get("maxBodySize") as number) ?? DEFAULT_MAX_BODY_SIZE),
 		send: (data: string | Buffer, status?: number) => send(res, data, status),
 		json: (data: unknown, status?: number) => json(res, data, status),
 		empty: (status?: number) => empty(res, status),

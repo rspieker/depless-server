@@ -1,5 +1,5 @@
-import { EventEmitter } from "node:events";
 import { createServer, type Server as HTTPServer } from "node:http";
+import { Readable } from "node:stream";
 
 import { type Context, createContext } from "./context.ts";
 import { Reply } from "./reply.ts";
@@ -135,11 +135,27 @@ function dispatchReply(res: ResponseLike, reply: Reply): void {
 	}
 }
 
+// Errors thrown from within a handler (or from framework internals invoked by
+// one, like the body-size limit) can tag themselves with a status to get a
+// specific response here instead of a generic 500 — the message is trusted
+// verbatim in that case, so only use it for messages that are safe to expose.
+function hasStatus(err: unknown): err is { status: number; message: string } {
+	return (
+		typeof err === "object" &&
+		err !== null &&
+		"status" in err &&
+		typeof (err as { status: unknown }).status === "number"
+	);
+}
+
 function stageFailure(res: ResponseLike, err: unknown): void {
+	const tagged = hasStatus(err);
+
 	if (!isSent(res)) {
-		json(res, { error: "Internal Server Error" }, 500);
+		json(res, { error: tagged ? err.message : "Internal Server Error" }, tagged ? err.status : 500);
 	}
-	console.error(err);
+
+	if (!tagged || err.status >= 500) console.error(err);
 }
 
 async function dispatch(
@@ -163,6 +179,7 @@ async function dispatch(
 			const match = router.match(rawReq.method ?? "GET", url.pathname);
 			if (match) {
 				Object.assign(params, match.params);
+				if (match.maxBodySize !== undefined) ctx.maxBodySize = match.maxBodySize;
 				const result = await match.handler(ctx);
 				if (!isSent(rawRes)) {
 					if (result === undefined) empty(rawRes);
@@ -396,13 +413,10 @@ export class Server {
 		this.#assertResolved("inject");
 
 		const headers = { ...(options.headers ?? {}) };
-		const emitter = new EventEmitter();
-		const rawReq: RequestLike = Object.assign(emitter, {
-			method: options.method,
-			url: options.path,
-			headers,
-			resume() {},
-		});
+		const rawReq = new Readable({ read() {} }) as RequestLike;
+		rawReq.method = options.method;
+		rawReq.url = options.path;
+		rawReq.headers = headers;
 
 		let statusCode = 200;
 		const resHeaders: Record<string, string | number> = {};
@@ -430,11 +444,11 @@ export class Server {
 			headers["content-type"] ??= "application/json";
 			const payload = JSON.stringify(options.body);
 			setImmediate(() => {
-				emitter.emit("data", Buffer.from(payload));
-				emitter.emit("end");
+				rawReq.push(Buffer.from(payload));
+				rawReq.push(null);
 			});
 		} else {
-			setImmediate(() => emitter.emit("end"));
+			setImmediate(() => rawReq.push(null));
 		}
 
 		await dispatch(

@@ -112,6 +112,23 @@ describe("server/router.ts", () => {
 			router.add({ method: "GET", path: "/users", handler: noop });
 			assert.ok(router.match("GET", "/users/"));
 		});
+
+		test("carries a route's maxBodySize into the match", () => {
+			const router = createRouter();
+			router.add({
+				method: "POST",
+				path: "/uploads",
+				handler: noop,
+				maxBodySize: 1024,
+			});
+			assert.equal(router.match("POST", "/uploads")?.maxBodySize, 1024);
+		});
+
+		test("maxBodySize is undefined when not set on the route", () => {
+			const router = createRouter();
+			router.add({ method: "GET", path: "/x", handler: noop });
+			assert.equal(router.match("GET", "/x")?.maxBodySize, undefined);
+		});
 	});
 
 	describe("add()", () => {

@@ -10,18 +10,21 @@ export type RouteOptions = {
 	method: string | Array<string>;
 	path: string;
 	handler: Handler;
+	maxBodySize?: number;
 };
 
 type CompiledRoute = {
 	pattern: RegExp;
 	score: Array<number>;
 	handler: Handler;
+	maxBodySize: number | undefined;
 };
 
 type RegisteredRoute = {
 	route: Route;
 	method: string;
 	handler: Handler;
+	maxBodySize: number | undefined;
 };
 
 function subtract(a: number = 0, b: number = 0): number {
@@ -52,6 +55,7 @@ function add(
 	methods: Array<string>,
 	path: string,
 	handler: Handler,
+	maxBodySize: number | undefined,
 ): void {
 	const atPath = filterByPath(registry, path);
 	const route = atPath[0]?.route ?? compile(path);
@@ -59,9 +63,11 @@ function add(
 	for (const method of methods) {
 		const existing = atPath.find((registered) => registered.method === method);
 
-		if (existing) existing.handler = handler;
-		else {
-			const created = { route, method, handler };
+		if (existing) {
+			existing.handler = handler;
+			existing.maxBodySize = maxBodySize;
+		} else {
+			const created = { route, method, handler, maxBodySize };
 			registry.push(created);
 			atPath.push(created);
 		}
@@ -103,11 +109,12 @@ export function createRouter() {
 			compare(a.route.score, b.route.score),
 		);
 
-		for (const { method, route, handler } of sorted) {
+		for (const { method, route, handler, maxBodySize } of sorted) {
 			const compiled: CompiledRoute = {
 				pattern: route.pattern,
 				score: route.score,
 				handler,
+				maxBodySize,
 			};
 
 			if (method === "*") {
@@ -124,7 +131,13 @@ export function createRouter() {
 	}
 
 	function addRoute(options: RouteOptions): void {
-		add(registry, normalizeMethods(options.method), options.path, options.handler);
+		add(
+			registry,
+			normalizeMethods(options.method),
+			options.path,
+			options.handler,
+			options.maxBodySize,
+		);
 		dirty = true;
 	}
 
@@ -145,19 +158,35 @@ export function createRouter() {
 	function match(
 		method: string,
 		pathname: string,
-	): { handler: Handler; params: Record<string, string> } | null {
+	): {
+		handler: Handler;
+		params: Record<string, string>;
+		maxBodySize: number | undefined;
+	} | null {
 		if (dirty) rebuild();
 
 		const upper = method.toUpperCase();
 
 		for (const route of byMethod.get(upper) ?? []) {
 			const found = pathname.match(route.pattern);
-			if (found) return { handler: route.handler, params: found.groups ?? {} };
+			if (found) {
+				return {
+					handler: route.handler,
+					params: found.groups ?? {},
+					maxBodySize: route.maxBodySize,
+				};
+			}
 		}
 
 		for (const route of wildcard) {
 			const found = pathname.match(route.pattern);
-			if (found) return { handler: route.handler, params: found.groups ?? {} };
+			if (found) {
+				return {
+					handler: route.handler,
+					params: found.groups ?? {},
+					maxBodySize: route.maxBodySize,
+				};
+			}
 		}
 
 		return null;

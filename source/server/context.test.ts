@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
+import { Readable } from "node:stream";
 import { describe, test } from "node:test";
 
 import { createContext } from "./context.ts";
@@ -14,12 +14,11 @@ function mockReq(
 		headers?: Record<string, string>;
 	} = {},
 ): RequestLike {
-	return Object.assign(new EventEmitter(), {
-		method: options.method ?? "GET",
-		url: options.url ?? "/",
-		headers: options.headers ?? {},
-		resume() {},
-	});
+	const readable = new Readable({ read() {} }) as RequestLike;
+	readable.method = options.method ?? "GET";
+	readable.url = options.url ?? "/";
+	readable.headers = options.headers ?? {};
+	return readable;
 }
 
 function mockRes(): ResponseLike {

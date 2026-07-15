@@ -191,6 +191,22 @@ handler: async (ctx) => {
 - `ctx` also exposes `params`, `query` (`URLSearchParams`), `headers`, `sent`,
   and arbitrary read/write properties for hooks and handlers to pass data to
   each other within one request.
+- `ctx.body()` enforces a request body size limit while streaming — counted
+  bytes, not the (spoofable, sometimes-absent) `Content-Length` header. The
+  default is a deliberately small **16KB**: it's a floor against an
+  unauthenticated client exhausting memory on the shared body-reading path,
+  not a cap sized for every legitimate payload. Routes that need more raise
+  it explicitly:
+  ```ts
+  server.route({
+  	method: "POST",
+  	path: "/uploads",
+  	maxBodySize: 1024 * 1024, // 1MB, this route only
+  	handler: async (ctx) => { ... },
+  });
+  ```
+  Exceeding the limit rejects with a `413` naming the limit and how to
+  override it, before the handler's own logic ever sees the body.
 
 ## Testing without a socket
 
