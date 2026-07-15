@@ -1,6 +1,7 @@
 import { compile } from "../server/route.ts";
 import type { Context } from "../server/context.ts";
-import type { Plugin } from "../server/server.ts";
+import type { Dependency, Plugin } from "../server/server.ts";
+import type { TokenAuth } from "./token-auth.ts";
 
 type Stats = {
 	min: number;
@@ -105,7 +106,8 @@ function sortRoutes(a: RouteStats, b: RouteStats): number {
 export const routeStatistics: Plugin = {
 	name: "route-statistics",
 	dependencies: ["token-auth"],
-	register: (server, { protect }) => {
+	register: (server, dep) => {
+		const { protect } = dep as Dependency<TokenAuth>;
 		const stats: Array<RouteStats> = [];
 
 		server.hook("before-handler", (ctx) => {

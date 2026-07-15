@@ -8,7 +8,11 @@ type ProtectOptions = {
 	header?: string;
 };
 
-export const tokenAuth: Plugin = {
+export type TokenAuth = {
+	protect(handler: Handler, options?: ProtectOptions): Handler;
+};
+
+export const tokenAuth: Plugin<TokenAuth> = {
 	name: "token-auth",
 	register: (server) => {
 		const defaults = server.options<ProtectOptions>();
@@ -30,7 +34,8 @@ export const tokenAuth: Plugin = {
 					const digest = sha512(secret);
 
 					return (ctx: Context) => {
-						const { [header]: token } = ctx.headers;
+						const { [header]: raw } = ctx.headers;
+						const token = Array.isArray(raw) ? raw[0] : raw;
 
 						if (!(token && safeEqual(sha512(token), digest))) {
 							return ctx.empty(401);
