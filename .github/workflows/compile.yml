@@ -102,7 +102,7 @@ jobs:
         shell: bash
         run: |
           ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
-          deno compile --allow-net --self-extracting \
+          deno compile --allow-net --allow-env --self-extracting \
             --include source --include test --include hooks.js \
             --include package.json --include tsconfig.json --include deno.json \
             --include README.md \

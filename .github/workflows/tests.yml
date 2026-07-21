@@ -45,7 +45,7 @@ jobs:
       - uses: denoland/setup-deno@v2.0.5
       # deno test --coverage generates lcov.info and a browsable html/
       # report on its own — no external tool (e.g. genhtml) needed.
-      - run: deno test --allow-net --coverage=cov_profile source/ test/
+      - run: deno test --allow-net --allow-env --coverage=cov_profile source/ test/
       - name: zip html report
         run: (cd cov_profile/html && zip -qr ../../depless-coverage.zip .)
       - uses: actions/upload-artifact@v7

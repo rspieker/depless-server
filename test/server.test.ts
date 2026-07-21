@@ -1,6 +1,6 @@
 // Integration tests — these bind a real socket via node:http, unlike
 // source/server/server.test.ts which stays network-free. Under Deno this
-// suite needs --allow-net; under Node there's no extra ceremony.
+// suite needs --allow-net and --allow-env; under Node there's no extra ceremony.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 

@@ -84,7 +84,7 @@ Deno has the same capability built in, stable, and far simpler — no
 external tool, no CommonJS workaround, no argv gotchas:
 
 ```
-deno compile --allow-net --self-extracting \
+deno compile --allow-net --allow-env --self-extracting \
   --include source --include test --include hooks.js \
   --include package.json --include tsconfig.json --include deno.json \
   --include README.md \
@@ -143,7 +143,7 @@ honest alternative on offer, not a substitute for one.
 
 ```
 node sea/build.mjs dist/depless-node      # Node SEA
-deno compile --allow-net --self-extracting \
+deno compile --allow-net --allow-env --self-extracting \
   --include source --include test --include hooks.js \
   --include package.json --include tsconfig.json --include deno.json \
   --include README.md \
