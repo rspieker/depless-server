@@ -24,8 +24,9 @@ from there.** No custom loader logic at all — both runtimes run the `.ts`
 sources natively.
 
 Concretely, each binary boots by:
-1. Reading its own embedded assets (`source/`, `test/`, `package.json`, `tsconfig.json`, `deno.json`, `README.md` — everything
-   needed for a working checkout).
+1. Reading its own embedded assets (`source/`, `test/`, `package.json`,
+   `tsconfig.json`, `deno.json`, `README.md` — everything needed for a
+   working checkout).
 2. Extracting them to a hidden, content-hashed directory next to the
    executable (`.<binary-name>/<hash>/`), skipping re-extraction if that
    directory already exists.

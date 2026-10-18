@@ -1,11 +1,11 @@
 # depless
 
-A dependency-free HTTP server for Node and Deno, with a hapi-inspired plugin
+A dependency-free HTTP server for Node, Bun, and Deno, with a hapi-inspired plugin
 system: named plugins with declared dependencies, a router with specificity-
 based matching, and a universal request/response hook pipeline.
 
 No framework dependency, no bundler, no build step. `node:http` under Node,
-the same module under Deno. Meant to run behind a real reverse proxy (nginx,
+the same module under Bun and Deno. Meant to run behind a real reverse proxy (nginx,
 Caddy, whatever you already have) — depless doesn't do TLS, HTTP/2, or
 anything past plain HTTP/1.1.
 
@@ -34,18 +34,38 @@ server.route({
 await server.start(3000);
 ```
 
-```
-npm start          # runs source/main.ts
-npm test           # unit + integration tests
-npm run coverage   # tests with coverage
-```
+## Runtimes
 
-Or, under Deno: `deno task test` / `deno task coverage`.
-
-Requires Node >= 22.18 (or Deno 2). Both run the `.ts` sources directly —
-Node strips the types natively, no loader, transpiler, or flags involved.
-That means the codebase sticks to [erasable TypeScript syntax](https://nodejs.org/api/typescript.html#type-stripping)
+depless only touches `node:*` built-ins and standard web APIs, so the same
+source tree runs unmodified on every runtime below. All of them run the `.ts`
+sources directly — no loader, transpiler, or flags involved. That means the
+codebase sticks to [erasable TypeScript syntax](https://nodejs.org/api/typescript.html#type-stripping)
 only: no `enum`, `namespace`, or constructor parameter properties.
+
+| Runtime | Version | Run | Test | Coverage |
+|---|---|---|---|---|
+| Node | >= 22.18 | `npm start` | `npm test` | `npm run coverage` |
+| Bun | >= 1.4 | `bun source/main.ts` | `bun test` | `bun test --coverage` |
+| Deno | >= 2 | `deno run --allow-net --allow-env source/main.ts` | `deno task test` | `deno task coverage` |
+
+CI runs the full suite on all three — Node 22 and 24, latest Bun, latest
+Deno — on Linux, macOS, and Windows. Bun runs the `node:test` suites through
+its own test runner, so use `bun test` rather than `bun run test` (which would
+hand the scripts in `package.json` to Node).
+
+### A note on Deno
+
+In October 2026 the Deno team [joined Cloudflare](https://deno.com/blog/cloudflare)
+and announced the end of active Deno development: the runtime gets monthly
+bug-fix and security releases for one more year, after which official
+development stops. Deno stays
+open source and there is talk of the community taking it over, but nothing
+concrete yet.
+
+depless keeps working on Deno and will keep being tested against it for as
+long as that's meaningful. If you're starting something new, though, think
+twice before making Deno the runtime you depend on — and if you're on it
+today, the portability above is exactly what makes switching cheap.
 
 ## Routing
 
