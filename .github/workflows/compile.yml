@@ -67,7 +67,7 @@ jobs:
           test -n "$extract_dir" || { echo "no extraction directory found"; exit 1; }
 
           extracted_count=$(find "$extract_dir" -type f | wc -l | tr -d ' ')
-          source_count=$(find source test hooks.js package.json tsconfig.json deno.json README.md -type f | wc -l | tr -d ' ')
+          source_count=$(find source test package.json tsconfig.json deno.json README.md -type f | wc -l | tr -d ' ')
           [ "$extracted_count" = "$source_count" ] || {
             echo "extracted file count ($extracted_count) != source file count ($source_count)"
             exit 1
@@ -103,7 +103,7 @@ jobs:
         run: |
           ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
           deno compile --allow-net --allow-env --self-extracting \
-            --include source --include test --include hooks.js \
+            --include source --include test \
             --include package.json --include tsconfig.json --include deno.json \
             --include README.md \
             --output "dist/depless-deno-${{ matrix.name }}${ext}" \

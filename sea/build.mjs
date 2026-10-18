@@ -48,7 +48,6 @@ async function gatherAssets() {
 	const files = [
 		...(await walk(join(repoRoot, "source"))),
 		...(await walk(join(repoRoot, "test"))),
-		join(repoRoot, "hooks.js"),
 		join(repoRoot, "package.json"),
 		join(repoRoot, "tsconfig.json"),
 		join(repoRoot, "deno.json"),

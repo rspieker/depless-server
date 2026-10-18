@@ -42,6 +42,11 @@ npm run coverage   # tests with coverage
 
 Or, under Deno: `deno task test` / `deno task coverage`.
 
+Requires Node >= 22.18 (or Deno 2). Both run the `.ts` sources directly —
+Node strips the types natively, no loader, transpiler, or flags involved.
+That means the codebase sticks to [erasable TypeScript syntax](https://nodejs.org/api/typescript.html#type-stripping)
+only: no `enum`, `namespace`, or constructor parameter properties.
+
 ## Routing
 
 Routes are `{ method, path, handler }`. `path` uses hapi-style `{param}`

@@ -2,7 +2,6 @@
 // supports a CommonJS main script (no top-level import/export), so this file
 // stays plain CJS and reaches for dynamic import() once the real, extracted
 // ESM sources are on disk.
-const { register } = require("node:module");
 const { mkdir, writeFile, rename, rm } = require("node:fs/promises");
 const { existsSync } = require("node:fs");
 const { createHash } = require("node:crypto");
@@ -43,11 +42,7 @@ async function extractAssets(dir, keys) {
 		await extractAssets(extractDir, keys);
 	}
 
+	// Node strips the TypeScript types itself (>= 22.18), no loader needed.
 	process.chdir(extractDir);
-	register(
-		pathToFileURL(join(extractDir, "hooks.js")).href,
-		pathToFileURL(`${extractDir}/`).href,
-	);
-
 	await import(pathToFileURL(join(extractDir, "source/main.ts")).href);
 })();

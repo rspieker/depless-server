@@ -20,11 +20,11 @@ make `import`/`require` resolve against them in memory. Rather than writing
 a custom in-memory ESM resolver (a lot of surface area for a ~40-file, ~280KB
 source tree), both binaries **extract their embedded files to a real
 directory on disk, then run the project's existing, unmodified toolchain
-from there.** No custom loader logic beyond what `hooks.js` already does.
+from there.** No custom loader logic at all — both runtimes run the `.ts`
+sources natively.
 
 Concretely, each binary boots by:
-1. Reading its own embedded assets (`source/`, `test/`, `hooks.js`,
-   `package.json`, `tsconfig.json`, `deno.json`, `README.md` — everything
+1. Reading its own embedded assets (`source/`, `test/`, `package.json`, `tsconfig.json`, `deno.json`, `README.md` — everything
    needed for a working checkout).
 2. Extracting them to a hidden, content-hashed directory next to the
    executable (`.<binary-name>/<hash>/`), skipping re-extraction if that
@@ -45,9 +45,9 @@ downloaded executable that unpacks into the exact source you'd get from
 release) **only supports a CommonJS main script** — no top-level
 `import`/`export`. So the bootstrap is plain CJS, wrapped in an async IIFE,
 and reaches for dynamic `import()` once the real ESM sources are extracted
-to disk. It then `register()`s the extracted (unmodified) `hooks.js` loader
-before importing `source/main.ts` — the same loader, doing the same
-TS-stripping, `hooks.js` already does for `npm start`.
+to disk, then imports the extracted `source/main.ts` directly — Node
+(>= 22.18) strips the TypeScript types itself, exactly as it does for
+`npm start`.
 
 `sea/build.mjs` does the actual build:
 1. Gathers the file list into a `sea-config.json` `assets` dict.
@@ -85,7 +85,7 @@ external tool, no CommonJS workaround, no argv gotchas:
 
 ```
 deno compile --allow-net --allow-env --self-extracting \
-  --include source --include test --include hooks.js \
+  --include source --include test \
   --include package.json --include tsconfig.json --include deno.json \
   --include README.md \
   --output depless-deno source/main.ts
@@ -144,7 +144,7 @@ honest alternative on offer, not a substitute for one.
 ```
 node sea/build.mjs dist/depless-node      # Node SEA
 deno compile --allow-net --allow-env --self-extracting \
-  --include source --include test --include hooks.js \
+  --include source --include test \
   --include package.json --include tsconfig.json --include deno.json \
   --include README.md \
   --output dist/depless-deno source/main.ts        # Deno

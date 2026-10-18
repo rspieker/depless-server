@@ -2,11 +2,14 @@
   "name": "depless",
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
-    "start": "node --import ./hooks.js ./source/main.ts",
+    "start": "node ./source/main.ts",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "node --import ./hooks.js --test \"source/**/*.test.ts\"",
-    "test:integration": "node --import ./hooks.js --test \"test/**/*.test.ts\"",
-    "coverage": "node --import ./hooks.js --test --experimental-test-coverage --test-coverage-exclude=hooks.js --test-coverage-exclude=\"**/*.test.ts\" \"**/*.test.ts\""
+    "test:unit": "node --test \"source/**/*.test.ts\"",
+    "test:integration": "node --test \"test/**/*.test.ts\"",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"**/*.test.ts\" \"**/*.test.ts\""
   }
 }
