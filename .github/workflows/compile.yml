@@ -1,11 +1,11 @@
 name: compile
 
-# Proves the node:sea and `deno compile --self-extracting` binaries actually
-# work — build, self-extract, and run the real test suite from the extracted
-# tree — on real GitHub-hosted runners for all three OSes. See
-# BINARIES.md for the full write-up. This workflow only
-# proves the binaries work; it never publishes anything (see release.yml for
-# that, on tag push).
+# Proves the node:sea, `deno compile --self-extracting`, and
+# `bun build --compile` binaries actually work — build, self-extract, and run
+# the real test suite from the extracted tree — on real GitHub-hosted runners
+# for all three OSes. See BINARIES.md for the full write-up. This workflow
+# only proves the binaries work; it never publishes anything (see release.yml
+# for that, on tag push).
 
 on:
   push:
@@ -162,4 +162,73 @@ jobs:
         with:
           name: depless-deno-${{ matrix.name }}
           path: dist/depless-deno-${{ matrix.name }}*
+          if-no-files-found: error
+
+  bun-compile:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+
+      - name: build
+        shell: bash
+        run: |
+          ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
+          bun build --compile bun/bootstrap.ts \
+            --asset source --asset test \
+            --asset package.json --asset tsconfig.json --asset deno.json \
+            --asset README.md \
+            --outfile "dist/depless-bun-${{ matrix.name }}${ext}"
+
+      - name: run + verify self-extraction round-trip
+        shell: bash
+        run: |
+          ext=""; [ "${{ matrix.name }}" = "windows" ] && ext=".exe"
+          bin="dist/depless-bun-${{ matrix.name }}${ext}"
+
+          "./$bin" &
+          pid=$!
+          ok=""
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sf http://localhost:3000/ 2>/dev/null | grep -q depless-server; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          kill "$pid" 2>/dev/null || true
+          test -n "$ok" || { echo "server never responded"; exit 1; }
+
+          extract_root="dist/.$(basename "$bin")"
+          extract_dir=$(find "$extract_root" -mindepth 1 -maxdepth 1 -type d | head -1)
+          test -n "$extract_dir" || { echo "no extraction directory found"; exit 1; }
+
+          extracted_count=$(find "$extract_dir" -type f | wc -l | tr -d ' ')
+          source_count=$(find source test package.json tsconfig.json deno.json README.md -type f | wc -l | tr -d ' ')
+          [ "$extracted_count" = "$source_count" ] || {
+            echo "extracted file count ($extracted_count) != source file count ($source_count)"
+            exit 1
+          }
+
+          # BUN_BE_BUN makes the compiled binary behave as the plain `bun`
+          # CLI, so the extracted tree is tested by the very runtime embedded
+          # in the binary rather than by the one setup-bun installed.
+          bin_path="$PWD/$bin"
+          cd "$extract_dir"
+          BUN_BE_BUN=1 "$bin_path" test
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: depless-bun-${{ matrix.name }}
+          path: dist/depless-bun-${{ matrix.name }}*
           if-no-files-found: error

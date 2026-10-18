@@ -6,21 +6,21 @@ demonstrate what its host ecosystems offer for single-binary distribution,
 without compromising that pitch for anyone who just wants to `git clone` and
 run it?
 
-`git clone` + `npm start` (or `deno task test`) remains the recommended way
-to use depless. What follows is a secondary, opt-in artifact, built and
-verified in CI (`.github/workflows/compile.yml`), attached to tagged
+`git clone` + `npm start` (or `bun test` / `deno task test`) remains the
+recommended way to use depless. What follows is a secondary, opt-in
+artifact, built and verified in CI (`.github/workflows/compile.yml`), attached to tagged
 releases (`.github/workflows/release.yml`) alongside the source archive
 GitHub already generates automatically for every tag.
 
 ## The core trick: self-extract to real disk, then reuse the real toolchain
 
-Both Node's `node:sea` and Deno's `deno compile` let you embed arbitrary
-files into a compiled binary as inert byte blobs — there's no built-in way to
-make `import`/`require` resolve against them in memory. Rather than writing
-a custom in-memory ESM resolver (a lot of surface area for a ~40-file, ~280KB
-source tree), both binaries **extract their embedded files to a real
+Node's `node:sea`, Deno's `deno compile`, and Bun's `bun build --compile` all
+let you embed arbitrary files into a compiled binary as inert byte blobs —
+there's no built-in way to make `import`/`require` resolve against them in
+memory. Rather than writing a custom in-memory ESM resolver (a lot of surface area for a ~40-file, ~280KB
+source tree), all three binaries **extract their embedded files to a real
 directory on disk, then run the project's existing, unmodified toolchain
-from there.** No custom loader logic at all — both runtimes run the `.ts`
+from there.** No custom loader logic at all — all three runtimes run the `.ts`
 sources natively.
 
 Concretely, each binary boots by:
@@ -31,7 +31,7 @@ Concretely, each binary boots by:
    executable (`.<binary-name>/<hash>/`), skipping re-extraction if that
    directory already exists.
 3. Running the extracted, unmodified entry point exactly as if you'd cloned
-   the repo and run `npm start` / `deno task test` yourself.
+   the repo and run `npm start` / `bun test` / `deno task test` yourself.
 
 This means the binary is only "single file" up until first run — after
 that, there's a real, readable, editable, testable copy of depless sitting
@@ -100,10 +100,43 @@ extracts to a hidden, hash-named directory next to the binary — the exact
 same convention `bootstrap.cjs` was written to mirror, on purpose, for a
 fair side-by-side.
 
+## Bun: `bun build --compile`
+
+Bun sits in between: embedding is built in, but self-extraction isn't.
+
+```
+bun build --compile bun/bootstrap.ts \
+  --asset source --asset test \
+  --asset package.json --asset tsconfig.json --asset deno.json \
+  --asset README.md \
+  --outfile depless-bun
+```
+
+`--asset` embeds files/directories with their relative paths intact,
+readable at runtime through `Bun.embeddedFiles` — but only the bundled
+module graph is importable from inside the binary. So `bun/bootstrap.ts`
+does what `sea/bootstrap.cjs` does: hash the embedded assets, write them to
+the same hidden `.<binary-name>/<hash>/` directory next to the executable,
+then `import()` the extracted `source/main.ts`. Bun bundles only the
+bootstrap itself; depless runs from the extracted, unmodified source. Unlike
+the Node bootstrap, it can be a plain ES module written in TypeScript — no
+CommonJS restriction.
+
+**Known constraints and niceties, found by building and running this:**
+- Setting `BUN_BE_BUN=1` makes the compiled binary behave as the plain `bun`
+  CLI, so `BUN_BE_BUN=1 ./depless-bun test` inside the extracted directory
+  tests it with the exact runtime embedded in the binary — no separately
+  installed Bun (or Node, as the SEA check needs) required.
+- Bun ad-hoc signs macOS binaries itself; no `codesign` step needed. The
+  same Gatekeeper and SmartScreen caveats as the Node binaries apply.
+- `--target=bun-<os>-<arch>` (e.g. `bun-linux-x64`) cross-compiles from any
+  host by downloading that platform's runtime; CI still builds natively on
+  each OS so every binary is also run and tested where it was built.
+
 ## The honest numbers
 
-Measured on Node v22.22.3, Deno v2.8.3, macOS arm64 — sizes on Linux/Windows
-will vary slightly but the shape holds:
+Measured on Node v22.22.3, Deno v2.8.3, Bun v1.4.3, macOS arm64 — sizes on
+Linux/Windows will vary slightly but the shape holds:
 
 | Variant | Size |
 |---|---|
@@ -112,20 +145,23 @@ will vary slightly but the shape holds:
 | Node SEA binary, no embedded assets (baseline "hello world") | 107M |
 | Node SEA binary, full 43-file source tree embedded | 107M (blob itself: 104K) |
 | Deno compiled binary, full source tree embedded, self-extracting | ~70M |
+| Plain `bun` binary alone | 67M |
+| Bun compiled binary, no embedded assets (baseline "hello world") | 68M |
+| Bun compiled binary, full 43-file source tree embedded | 68M (assets add ~130K) |
 
-The takeaway: **the embedded assets are essentially free** — both binaries
-are almost entirely "a copy of the runtime," and the actual project adds a
-rounding error's worth of bytes. Deno's binary is meaningfully smaller
-because Deno's runtime distribution itself is smaller than Node's, not
-because of anything specific to this project. Neither shrinks with
+The takeaway: **the embedded assets are essentially free** — all three
+binaries are almost entirely "a copy of the runtime," and the actual project
+adds a rounding error's worth of bytes. The Deno and Bun binaries are
+meaningfully smaller because their runtime distributions are smaller than
+Node's, not because of anything specific to this project. None shrinks with
 tree-shaking — you always ship the full runtime, whether your app uses 5%
 of its APIs or 95%. That's the real limitation of "single executable" as a
 distribution model for a project this size: the executable is enormously
 larger than the software it contains, and the moment you're running under
 something like pm2/nodemon/Kubernetes, you already have a runtime present
 and the binary buys nothing over just running the source directly. The
-compelling case is narrower: handing someone a single file who has neither
-Node nor Deno installed at all.
+compelling case is narrower: handing someone a single file who has none of
+Node, Bun, or Deno installed at all.
 
 ## Verifying a downloaded binary
 
@@ -149,9 +185,14 @@ deno compile --allow-net --allow-env --self-extracting \
   --include package.json --include tsconfig.json --include deno.json \
   --include README.md \
   --output dist/depless-deno source/main.ts        # Deno
+bun build --compile bun/bootstrap.ts \
+  --asset source --asset test \
+  --asset package.json --asset tsconfig.json --asset deno.json \
+  --asset README.md \
+  --outfile dist/depless-bun                       # Bun
 ```
 
-Both are exactly what `.github/workflows/compile.yml` runs in CI, on all
-three OSes, verifying in each case that the binary boots, self-extracts,
-and that `npm test` / `deno task test` passes from inside the extracted
-directory — not just that the binary launched.
+All three are exactly what `.github/workflows/compile.yml` runs in CI, on
+all three OSes, verifying in each case that the binary boots, self-extracts,
+and that `npm test` / `deno task test` / `bun test` passes from inside the
+extracted directory — not just that the binary launched.

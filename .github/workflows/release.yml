@@ -1,8 +1,8 @@
 name: release
 
-# Builds and attaches the node:sea and `deno compile` binaries to a GitHub
-# Release on tag push, alongside the source zip/tarball GitHub already
-# generates automatically for every tag. See BINARIES.md —
+# Builds and attaches the node:sea, `deno compile`, and `bun build --compile`
+# binaries to a GitHub Release on tag push, alongside the source zip/tarball
+# GitHub already generates automatically for every tag. See BINARIES.md —
 # these binaries are a convenience, not the primary way to get depless;
 # `git clone` (or the auto-generated source archive) remains that.
 #
@@ -47,6 +47,6 @@ jobs:
           files: release-assets/*
           generate_release_notes: true
           body: |
-            Prebuilt `node:sea` and `deno compile` binaries for Linux, macOS, and Windows are attached below, alongside `SHA256SUMS.txt` to verify them against and a browsable test coverage report (`depless-coverage.zip`).
+            Prebuilt `node:sea`, `deno compile`, and `bun build --compile` binaries for Linux, macOS, and Windows are attached below, alongside `SHA256SUMS.txt` to verify them against and a browsable test coverage report (`depless-coverage.zip`).
 
             These are a convenience, not the recommended way to get depless — see the README for that. Verify a download with e.g. `shasum -a 256 -c SHA256SUMS.txt`.
